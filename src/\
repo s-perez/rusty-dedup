@@ -1,0 +1,65 @@
+extern crate clap;
+extern crate log;
+extern crate radix_trie;
+extern crate simple_logger;
+
+mod json;
+mod parser;
+mod yaml;
+mod dedup;
+
+use clap::{Arg, App};
+use log::{info, error};
+use json::{Json};
+use parser::Parser;
+use yaml::{Yaml};
+
+fn main() {
+    simple_logger::init().unwrap();
+    let matches = App::new("Rusty dedup")
+                      .version("1.0")
+                      .author("Salvador Perez <sisekeom@protonmail.com>")
+                      .about("Remove duplicates from arbitrary files")
+                      .arg(Arg::with_name("type")
+                           .short("t")
+                           .long("type")
+                           .value_name("json|yaml|csv")
+                           .possible_values(&["json", "yaml", "csv"])
+                           .help("Type of input file")
+                           .required(true)
+                           .takes_value(true))
+                      .arg(Arg::with_name("config")
+                           .short("c")
+                           .long("config")
+                           .value_name("File")
+                           .help("Deduplication config")
+                           .required(true)
+                           .takes_value(true))
+                      .arg(Arg::with_name("file")
+                           .help("File to proces")
+                           .required(true)
+                           .index(3))
+                      .get_matches();
+    let config = matches.value_of("config").unwrap();
+    let file = matches.value_of("file").unwrap();
+
+    let parser : &Parser = match matches.value_of("type").unwrap(){
+        "json" => {
+            let json_parser = Json::new(config);
+            &json_parser
+        }
+        "yaml" => {
+            let yaml_parser = Yaml::new(config);
+            &yaml_parser
+        }
+        "csv" => {
+            &Json::new(config)
+        }
+        _ => {
+            error!("Undefined type");
+            &Json::new(config)
+        }
+    };
+    dedup::deduplicate(parser, file);
+    info!("All went well")
+}
